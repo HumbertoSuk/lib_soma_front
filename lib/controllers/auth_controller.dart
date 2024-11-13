@@ -9,7 +9,7 @@ class AuthController {
   AuthController() {
     _dio.options.baseUrl = baseUrl;
 
-    // Interceptor para registrar las solicitudes y respuestas
+    // Interceptor para registrar solicitudes y respuestas
     _dio.interceptors.add(InterceptorsWrapper(
       onRequest: (options, handler) {
         _logger.i('Solicitud: ${options.method} ${options.path}');
@@ -32,8 +32,8 @@ class AuthController {
     ));
   }
 
-  // Inicia sesión y devuelve el token
-  Future<String?> login(String username, String password) async {
+// Inicia sesión y devuelve un Map con token, userId y roleId
+  Future<Map<String, dynamic>?> login(String username, String password) async {
     try {
       final formData = {
         'grant_type': 'password',
@@ -56,7 +56,11 @@ class AuthController {
 
       if (response.statusCode == 200) {
         _logger.i('Inicio de sesión exitoso');
-        return response.data['access_token']; // Token de acceso
+        return {
+          'access_token': response.data['access_token'], // Token de acceso
+          'user_id': response.data['user_id'], // ID del usuario
+          'role_id': response.data['role_id'], // ID del rol
+        };
       } else {
         _logger.w('Error al iniciar sesión: ${response.data}');
         throw Exception('Usuario o contraseña incorrectos');
@@ -65,35 +69,5 @@ class AuthController {
       _logger.e('Excepción atrapada en login: ${e.toString()}');
       throw Exception('Error de conexión: ${e.toString()}');
     }
-  }
-
-  // Realiza el logout e invalida el token
-  Future<void> logout(String token) async {
-    try {
-      final response = await _dio.post(
-        '/logout/',
-        options: Options(
-          headers: {
-            'Authorization': 'Bearer $token',
-            'Content-Type': 'application/x-www-form-urlencoded',
-          },
-        ),
-      );
-
-      if (response.statusCode == 200) {
-        _logger.i('Logout exitoso');
-      } else {
-        _logger.w('Error al cerrar sesión: ${response.data}');
-        throw Exception('Error al cerrar sesión');
-      }
-    } catch (e) {
-      _logger.e('Excepción atrapada en logout: ${e.toString()}');
-      throw Exception('Error de conexión: ${e.toString()}');
-    }
-  }
-
-  // Verifica si el usuario está autenticado
-  bool isAuthenticated(String? token) {
-    return token != null && token.isNotEmpty;
   }
 }

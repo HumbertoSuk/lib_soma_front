@@ -13,18 +13,26 @@ class AuthNotifier extends ChangeNotifier {
 
   bool _isAuthenticated = false;
   String? _token;
+  int? _userId; // Almacenar el ID del usuario
+  int? _roleId; // Almacenar el ID del rol
 
   AuthNotifier() {
-    _loadToken(); // Intenta cargar el token al inicializar
+    _loadCredentials(); // Cargar token, userId y roleId al inicializar
   }
 
   bool isAuthenticated() => _isAuthenticated;
 
   String? get token => _token; // Exponer el token para otros providers
+  int? get userId => _userId; // Exponer el userId para otros providers
+  int? get roleId => _roleId; // Exponer el roleId para otros providers
 
-  Future<void> _loadToken() async {
+  Future<void> _loadCredentials() async {
     _token = await _secureStorage.read(key: 'auth_token');
-    if (_token != null) {
+    _userId = int.tryParse(await _secureStorage.read(key: 'user_id') ?? '');
+    _roleId = int.tryParse(
+        await _secureStorage.read(key: 'role_id') ?? ''); // Cargar role_id
+
+    if (_token != null && _userId != null && _roleId != null) {
       _isAuthenticated = true;
       notifyListeners(); // Notificar que ya está autenticado
     }
@@ -32,12 +40,18 @@ class AuthNotifier extends ChangeNotifier {
 
   Future<void> login(String username, String password) async {
     try {
-      final token = await _authController.login(username, password);
-      if (token != null) {
-        _token = token;
+      final authData = await _authController.login(username, password);
+      if (authData != null) {
+        _token = authData['access_token'];
+        _userId = authData['user_id'];
+        _roleId = authData['role_id']; // Asignar role_id del Map de respuesta
         _isAuthenticated = true;
-        // Guardar token de manera segura en almacenamiento cifrado
-        await _secureStorage.write(key: 'auth_token', value: token);
+
+        // Guardar token, userId y roleId de manera segura en almacenamiento cifrado
+        await _secureStorage.write(key: 'auth_token', value: _token);
+        await _secureStorage.write(key: 'user_id', value: _userId.toString());
+        await _secureStorage.write(key: 'role_id', value: _roleId.toString());
+
         notifyListeners();
       } else {
         throw Exception('Credenciales incorrectas');
@@ -50,9 +64,14 @@ class AuthNotifier extends ChangeNotifier {
   void logout() async {
     _isAuthenticated = false;
     _token = null;
+    _userId = null;
+    _roleId = null;
+
     notifyListeners(); // Notificar que el usuario ha cerrado sesión
 
-    // Eliminar el token de almacenamiento seguro
+    // Eliminar el token, userId y roleId del almacenamiento seguro
     await _secureStorage.delete(key: 'auth_token');
+    await _secureStorage.delete(key: 'user_id');
+    await _secureStorage.delete(key: 'role_id');
   }
 }
